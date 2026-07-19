@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统验证</title>
+    <style>
+        body { margin: 0; padding: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        #auth-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 15, 20, 0.95); backdrop-filter: blur(8px);
+            z-index: 99999; display: flex; justify-content: center; align-items: center;
+            color: white;
+        }
+        .auth-box {
+            background: #1e1e24; padding: 30px; border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;
+            width: 85%; max-width: 320px; border: 1px solid #333;
+        }
+        .auth-box h2 { margin-top: 0; font-size: 18px; color: #fff; margin-bottom: 20px;}
+        .auth-box input {
+            width: 100%; padding: 12px; box-sizing: border-box;
+            background: #2b2b36; border: 1px solid #444; color: white;
+            border-radius: 6px; margin-bottom: 15px; outline: none; text-align: center;
+        }
+        .auth-box button {
+            width: 100%; padding: 12px; background: #007aff; color: white;
+            border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
+        }
+        .auth-box button:active { background: #005ecb; }
+        .error-msg { color: #ff4d4f; font-size: 12px; margin-top: 10px; display: none; }
+        .loading { color: #aaa; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<!-- 验证层 -->
+<div id="auth-overlay">
+    <div class="auth-box" id="box-loading">
+        <p class="loading">正在连接验证服务器...</p>
+    </div>
+</div>
+
+<script>
+    // === 配置区域 ===
+    // 注意：这里已经帮你修正了链接，去掉了那个导致错误的 %C2%A0
+    const CONFIG_URL = "https://raw.githubusercontent.com/luo0125172319/-/refs/heads/main/config.json";
+    
+    // 核心逻辑
+    async function initAuth() {
+        const overlay = document.getElementById('auth-overlay');
+        const box = document.getElementById('box-loading');
+
+        try {
+            // 1. 获取远程配置
+            const response = await fetch(CONFIG_URL + '?t=' + new Date().getTime()); // 加时间戳防止缓存
+            
+            if (!response.ok) throw new Error("网络请求失败");
+            
+            const config = await response.json();
+            
+            // 2. 渲染输入框界面
+            box.innerHTML = `
+                <h2>${config.title || '身份验证'}</h2>
+                <input type="password" id="pwd-input" placeholder="请输入访问密码">
+                <button onclick="checkPwd()">进入系统</button>
+                <div id="msg" class="error-msg"></div>
+            `;
+            
+            // 将验证函数挂载到全局
+            window.checkPwd = function() {
+                const inputVal = document.getElementById('pwd-input').value;
+                const msgDiv = document.getElementById('msg');
+                
+                if (inputVal === config.password) {
+                    // 密码正确
+                    overlay.style.opacity = '0';
+                    setTimeout(() => overlay.remove(), 500);
+                    
+                    // 如果配置了跳转链接
+                    if(config.targetUrl) {
+                        // 这里可以根据需求选择是跳转还是仅仅显示内容
+                        // window.location.href = config.targetUrl; 
+                        alert("验证成功！即将前往目标页面...");
+                        window.location.href = config.targetUrl;
+                    }
+                } else {
+                    // 密码错误
+                    msgDiv.style.display = 'block';
+                    msgDiv.innerText = "密码错误，请重试";
+                }
+            };
+
+        } catch (err) {
+            console.error(err);
+            box.innerHTML = `<p style="color:red">配置加载失败<br><small>请检查网络或链接</small></p>`;
+            // 如果是本地 file:// 打开，通常会走到这里
+            if(window.location.protocol === 'file:') {
+                 box.innerHTML = `<p style="color:orange">检测到您是本地打开<br>浏览器限制了网络请求<br>请上传到服务器后使用</p>`;
+            }
+        }
+    }
+
+    // 启动
+    initAuth();
+</script>
+
+</body>
+</html>
